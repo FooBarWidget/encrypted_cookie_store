@@ -4,12 +4,14 @@ EncryptedCookieStore is similar to Ruby on Rails's CookieStore (it saves session
 
 EncryptedCookieStore is written for Rails 2.3. Other versions of Rails have not been tested.
 
+*Note*: This is _not_ Thoughtbot's EncryptedCookieStore. In the Rails 2.0 days they wrote an EncryptedCookieStore, but it seems their repository had gone defunct and their source code lost. This EncryptedCookieStore written from scratch by Phusion.
+
 Installation and usage
 ----------------------
 
 First, install it:
 
-    ./script/plugin install [....]
+    ./script/plugin install git://github.com/FooBarWidget/encrypted_cookie_store.git
 
 Then edit `config/environment.rb` and set your session store to EncryptedCookieStore:
 
