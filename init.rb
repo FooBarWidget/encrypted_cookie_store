@@ -1,0 +1,1 @@
+require 'encrypted_cookie_store'
