@@ -90,3 +90,25 @@ There are of course drawbacks as well:
  * It is prone to session replay attacks. These kind of attacks are explained in the [Ruby on Rails Security Guide](http://guides.rubyonrails.org/security.html#session-storage). Therefore you should never store anything along the lines of `is_admin` in the session.
  * You can store at most a little less than 4 KB of data in the session because that's the size limit of a cookie. "A little less" because EncryptedCookieStore also stores a small amount of bookkeeping data in the cookie.
  * Although encryption makes it more secure than CookieStore, there's still a chance that a bug in EncryptedCookieStore renders it insecure. We welcome everyone to audit this code. There's also a chance that weaknesses in AES are found in the near future which render it insecure. If you are storing *really* sensitive information in the session, e.g. social security numbers, or plans for world domination, then you should consider using ActiveRecordStore or some other server-side store.
+
+JRuby: Illegal Key Size error
+-----------------------------
+If you get this error (and your code works with MRI)...
+
+    Illegal key size
+    
+    [...]/vendor/plugins/encrypted_cookie_store/lib/encrypted_cookie_store.rb:62:in `marshal'
+
+...then it probably means you don't have the "unlimited strength" policy files
+installed for your JVM.
+[Download and install them.](http://www.ngs.ac.uk/tools/jcepolicyfiles)
+You probably have the "strong" version if they are already there.
+
+As a workaround, you can change the cipher type from 256-bit AES to 128-bit by
+inserting the following in `config/initializer/session_store.rb`:
+
+    EncryptedCookieStore.data_cipher_type = 'aes-128-cfb'.freeze  # was 256
+
+Please note that after changing to 128-bit AES, EncryptedCookieStore still
+requires a 32 bytes hexadecimal encryption key, although only half of the key
+is actually used.

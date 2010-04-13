@@ -5,11 +5,19 @@ class EncryptedCookieStore < ActionController::Session::CookieStore
 	OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
 	include EncryptedCookieStoreConstants
 	
+	class << self
+		attr_accessor :iv_cipher_type
+		attr_accessor :data_cipher_type
+	end
+	
+	self.iv_cipher_type   = "aes-128-ecb".freeze
+	self.data_cipher_type = "aes-256-cfb".freeze
+	
 	def initialize(app, options = {})
 		ensure_encryption_key_secure(options[:encryption_key])
 		@encryption_key = unhex(options[:encryption_key]).freeze
-		@iv_cipher      = OpenSSL::Cipher::Cipher.new(IV_CIPHER_TYPE)
-		@data_cipher    = OpenSSL::Cipher::Cipher.new(DATA_CIPHER_TYPE)
+		@iv_cipher      = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.iv_cipher_type)
+		@data_cipher    = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
 		super(app, options)
 	end
 	
