@@ -1,5 +1,6 @@
 $LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__) + "/../lib"))
 require 'rubygems'
+gem 'rails', '~> 2.3.0'
 require 'action_controller'
 require 'encrypted_cookie_store'
 
