@@ -20,16 +20,16 @@ First, install it:
 
     ./script/plugin install git://github.com/FooBarWidget/encrypted_cookie_store.git
 
-Then edit `config/environment.rb` and set your session store to
+Then edit `config/initializers/session_store.rb` and set your session store to
 EncryptedCookieStore:
 
-    config.action_controller.session_store = EncryptedCookieStore
+    ActionController::Base.session_store = EncryptedCookieStore
 
 You need to set a few session options before EncryptedCookieStore is usable.
 You must set all options that CookieStore needs, plus an encryption key that
-EncryptedCookieStore needs:
+EncryptedCookieStore needs. In `session_store.rb`:
 
-    config.action_controller.session = {
+    ActionController::Base.session = {
         # CookieStore options...
         :key            => '_session',     # Name of the cookie which contains the session data.
         :secret         => 'b4589cc9...',  # A secret string used to generate the checksum for
