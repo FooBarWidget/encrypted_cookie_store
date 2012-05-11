@@ -66,7 +66,8 @@ EncryptedCookieStore vs other session stores
 EncryptedCookieStore inherits all the benefits of CookieStore:
 
  * It works out of the box without the need to setup a seperate data store (e.g. database table, daemon, etc).
- * It does not require any maintenance. Old, stale sessions do not need to be manually cleaned up, as is the case with PStore and ActiveRecordStore.
+ * It does not require any maintenance. Old, stale sessions do not need to be manually cleaned up, as is the
+   case with PStore and ActiveRecordStore.
  * Compared to MemCacheStore, EncryptedCookieStore can "hold" an infinite number of sessions at any time.
  * It can be scaled across multiple servers without any additional setup.
  * It is fast.
@@ -74,5 +75,16 @@ EncryptedCookieStore inherits all the benefits of CookieStore:
 
 There are of course drawbacks as well:
 
- * You can store at most a little less than 4 KB of data in the session because that's the size limit of a cookie. "A little less" because EncryptedCookieStore also stores a small amount of bookkeeping data in the cookie.
- * Although encryption makes it more secure than CookieStore, there's still a chance that a bug in EncryptedCookieStore renders it insecure. We welcome everyone to audit this code. There's also a chance that weaknesses in AES are found in the near future which render it insecure. If you are storing *really* sensitive information in the session, e.g. social security numbers, or plans for world domination, then you should consider using ActiveRecordStore or some other server-side store.
+ * It is prone to session replay attacks. These kind of attacks are explained in the
+   [Ruby on Rails Security Guide](http://guides.rubyonrails.org/security.html#session-storage). Therefore you
+   should never store anything along the lines of `is_admin` in the session. EncryptedCookieStore does
+   improve on CookieStore in reducing the amount of time allowed for a replay attack to the :expire_after value,
+   instead of forever, but is still weaker than a server side session with an accompanying cookie that allows
+   re-establishment of a session, but not replay of the session contents.
+ * You can store at most a little less than 4 KB of data in the session because that's the size limit of a
+   cookie. "A little less" because EncryptedCookieStore also stores a small amount of bookkeeping data in the cookie.
+ * Although encryption makes it more secure than CookieStore, there's still a chance that a bug in
+   EncryptedCookieStore renders it insecure. We welcome everyone to audit this code. There's also a chance that
+   weaknesses in AES are found in the near future which render it insecure. If you are storing *really* sensitive
+   information in the session, e.g. social security numbers, or plans for world domination, then you should
+   consider using ActiveRecordStore or some other server-side store.
