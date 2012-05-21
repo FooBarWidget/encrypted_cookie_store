@@ -99,22 +99,22 @@ private
         @data_cipher.iv = iv
         session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
         session_data = inflate(session_data) if compressed
-        return [nil, nil] unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), secret, session_data + timestamp.to_s)
+        return [nil, nil, nil] unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), secret, session_data + timestamp.to_s)
         if @expire_after
-          return [nil, nil] unless timestamp
-          return [nil, timestamp] unless Time.now.utc.to_i - timestamp < @expire_after
+          return [nil, nil, nil] unless timestamp
+          return [nil, nil, timestamp] unless Time.now.utc.to_i - timestamp < @expire_after
         end
         [Marshal.load(session_data), session_data, timestamp]
       else
-        [nil, nil]
+        [nil, nil, nil]
       end
     else
-      [nil, nil]
+      [nil, nil, nil]
     end
   rescue Zlib::DataError
-    [nil, nil]
+    [nil, nil, nil]
   rescue OpenSSLCipherError
-    [nil, nil]
+    [nil, nil, nil]
   end
 
   def all_unpacked_cookie_data(env)

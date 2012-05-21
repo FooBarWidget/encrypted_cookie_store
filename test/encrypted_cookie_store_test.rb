@@ -78,7 +78,7 @@ describe EncryptedCookieStore do
     store = create(:expire_after => 1.day)
     data = store.send(:marshal, OBJECT)
     Time.should_receive(:now).and_return(today)
-    store.send(:unmarshal, data).first.should be_nil
+    store.send(:unmarshal, data).should == [nil, nil, yesterday.to_i]
   end
 
   it "should compress" do
