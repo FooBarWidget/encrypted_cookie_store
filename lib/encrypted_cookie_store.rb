@@ -17,7 +17,7 @@ class EncryptedCookieStore < ActionController::Session::CookieStore
     @compress = options[:compress]
     @compress = true if @compress.nil?
     @data_cipher    = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
-    @expire_after = options[:expire_after].freeze
+    @options = options
     options[:refresh_interval] ||= 5.minutes
     super(app, options)
   end
@@ -34,6 +34,8 @@ class EncryptedCookieStore < ActionController::Session::CookieStore
     session_data = env[ENV_SESSION_KEY]
     options = env[ENV_SESSION_OPTIONS_KEY]
     request = ActionController::Request.new(env)
+
+    @options[:expire_after] = options[:expire_after] || @options[:expire_after]
 
     if !(options[:secure] && !request.ssl?) && (!session_data.is_a?(ActionController::Session::AbstractStore::SessionHash) || session_data.loaded? || options[:expire_after])
       session_data.send(:load!) if session_data.is_a?(ActionController::Session::AbstractStore::SessionHash) && !session_data.loaded?
@@ -76,11 +78,11 @@ private
       compressed_session_data = session_data
     end
     encrypted_session_data = @data_cipher.update(compressed_session_data) << @data_cipher.final
-    timestamp        = Time.now.utc.to_i if @expire_after
+    timestamp        = Time.now.utc.to_i if @options[:expire_after]
     digest           = OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), secret, session_data + timestamp.to_s)
 
     result = "#{base64(iv)}#{compressed_session_data == session_data ? '.' : ' '}#{base64(encrypted_session_data)}.#{base64(digest)}"
-    result << ".#{base64([timestamp].pack('N'))}" if @expire_after
+    result << ".#{base64([timestamp].pack('N'))}" if @options[:expire_after]
     result
   end
 
@@ -100,9 +102,9 @@ private
         session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
         session_data = inflate(session_data) if compressed
         return [nil, nil, nil] unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), secret, session_data + timestamp.to_s)
-        if @expire_after
+        if @options[:expire_after]
           return [nil, nil, nil] unless timestamp
-          return [nil, nil, timestamp] unless Time.now.utc.to_i - timestamp < @expire_after
+          return [nil, nil, timestamp] unless Time.now.utc.to_i - timestamp < @options[:expire_after]
         end
         [Marshal.load(session_data), session_data, timestamp]
       else
