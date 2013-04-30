@@ -28,6 +28,7 @@ class EncryptedCookieStore < ActionController::Session::CookieStore
     old_session_data, raw_old_session_data, old_timestamp = all_unpacked_cookie_data(env)
     # make sure we have a deep copy
     old_session_data = Marshal.load(raw_old_session_data) if raw_old_session_data
+    env['encrypted_cookie_store.session_refreshed_at'] ||= session_refreshed_at(old_timestamp, env)
 
     status, headers, body = @app.call(env)
 
@@ -131,6 +132,11 @@ private
 
   def unpacked_cookie_data(env)
     all_unpacked_cookie_data(env).first
+  end
+
+  def session_refreshed_at(timestamp, env)
+    expire_after = env[ENV_SESSION_OPTIONS_KEY][:expire_after] || @options[:expire_after]
+    Time.at(timestamp).utc - expire_after if timestamp && expire_after
   end
 
   # To prevent users from using an insecure encryption key like "Password" we make sure that the
