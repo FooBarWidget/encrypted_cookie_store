@@ -1,8 +1,8 @@
 Gem::Specification.new do |s|
   s.name = %q{encrypted_cookie_store-instructure}
-  s.version = "1.0.2"
+  s.version = "1.0.3"
 
-  s.authors = ["Cody"]
+  s.authors = ["Cody Cutrer", "Jacob Fugal"]
   s.date = %q{2012-05-11}
   s.extra_rdoc_files = [
     "LICENSE.txt"
