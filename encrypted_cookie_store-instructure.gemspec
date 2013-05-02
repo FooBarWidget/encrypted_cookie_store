@@ -3,7 +3,7 @@ Gem::Specification.new do |s|
   s.version = "1.0.4"
 
   s.authors = ["Cody Cutrer", "Jacob Fugal"]
-  s.date = %q{2012-05-11}
+  s.date = %q{2013-05-02}
   s.extra_rdoc_files = [
     "LICENSE.txt"
   ]
