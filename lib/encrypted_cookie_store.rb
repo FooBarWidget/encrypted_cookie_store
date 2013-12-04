@@ -13,6 +13,8 @@ module ActionDispatch
       end
       self.data_cipher_type = "aes-128-cbc".freeze
 
+      EXPIRE_AFTER_KEY = "encrypted_cookie_store.session_expire_after"
+
       OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
 
       def initialize(app, options = {})
@@ -33,7 +35,16 @@ module ActionDispatch
         super(app, options)
       end
 
+      def call(env)
+        @expire_after = env[EXPIRE_AFTER_KEY]
+        super
+      end
+
       private
+
+      def expire_after(options={})
+        @expire_after || options[:expire_after]
+      end
 
       # overrides method in ActionDispatch::Session::CookieStore
       def unpacked_cookie_data(env)
@@ -81,7 +92,7 @@ module ActionDispatch
       end
 
       def refresh_session?(env, options)
-        if options[:expire_after] && options[:refresh_interval] && time = timestamp(env)
+        if expire_after(options) && options[:refresh_interval] && time = timestamp(env)
           Time.now.utc.to_i > time + options[:refresh_interval]
         else
           false
@@ -101,11 +112,11 @@ module ActionDispatch
           compressed_session_data = session_data
         end
         encrypted_session_data = @data_cipher.update(compressed_session_data) << @data_cipher.final
-        timestamp        = Time.now.utc.to_i if options[:expire_after]
+        timestamp        = Time.now.utc.to_i if expire_after(options)
         digest           = OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), @secret, session_data + timestamp.to_s)
 
         result = "#{base64(iv)}#{compressed_session_data == session_data ? '.' : ' '}#{base64(encrypted_session_data)}.#{base64(digest)}"
-        result << ".#{base64([timestamp].pack('N'))}" if options[:expire_after]
+        result << ".#{base64([timestamp].pack('N'))}" if expire_after(options)
         result
       end
 
@@ -125,8 +136,8 @@ module ActionDispatch
           session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
           session_data = inflate(session_data) if compressed
           return nil unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), @secret, session_data + timestamp.to_s)
-          if options[:expire_after]
-            return nil unless timestamp && Time.now.utc.to_i <= timestamp + options[:expire_after]
+          if expire_after(options)
+            return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
           end
 
           loaded_data = Marshal.load(session_data) || nil
