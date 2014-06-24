@@ -119,7 +119,7 @@ module ActionDispatch
         end
         encrypted_session_data = @data_cipher.update(compressed_session_data) << @data_cipher.final
         timestamp        = Time.now.utc.to_i if expire_after(options)
-        digest           = OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), @secret, session_data + timestamp.to_s)
+        digest           = OpenSSL::HMAC.digest(OpenSSL::Digest.new(@digest), @secret, session_data + timestamp.to_s)
 
         result = "#{base64(iv)}#{compressed_session_data == session_data ? '.' : ' '}#{base64(encrypted_session_data)}.#{base64(digest)}"
         result << ".#{base64([timestamp].pack('N'))}" if expire_after(options)
@@ -141,7 +141,7 @@ module ActionDispatch
           @data_cipher.iv = iv
           session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
           session_data = inflate(session_data) if compressed
-          return nil unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new(@digest), @secret, session_data + timestamp.to_s)
+          return nil unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest.new(@digest), @secret, session_data + timestamp.to_s)
           if expire_after(options)
             return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
           end
