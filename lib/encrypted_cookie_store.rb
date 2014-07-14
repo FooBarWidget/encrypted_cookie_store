@@ -146,7 +146,7 @@ module ActionDispatch
             return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
           end
 
-          loaded_data = Marshal.load(session_data) || nil
+          loaded_data = (Marshal.load(session_data) rescue nil) || nil
           loaded_data[:timestamp] = timestamp if loaded_data && timestamp
           loaded_data
         else
