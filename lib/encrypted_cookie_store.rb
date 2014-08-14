@@ -18,6 +18,7 @@ module ActionDispatch
       OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
 
       def initialize(app, options = {})
+        @logger = options.delete(:logger)
         @digest = options.delete(:digest) || 'SHA1'
 
         @compress = options[:compress]
@@ -146,7 +147,13 @@ module ActionDispatch
             return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
           end
 
-          loaded_data = (Marshal.load(session_data) rescue nil) || nil
+          loaded_data = nil
+          begin
+            loaded_data = Marshal.load(session_data)
+          rescue
+            @logger.error("Could not unmarshal session_data: #{session_data.inspect}") if @logger
+          end
+
           loaded_data[:timestamp] = timestamp if loaded_data && timestamp
           loaded_data
         else
