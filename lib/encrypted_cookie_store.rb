@@ -1,7 +1,11 @@
 require 'openssl'
 require 'zlib'
 
-require 'active_support/core_ext/hash/deep_dup'
+if ActiveSupport::VERSION::STRING >= '4.0'
+  require 'active_support/core_ext/object/deep_dup'
+else
+  require 'active_support/core_ext/hash/deep_dup'
+end
 require 'active_support/core_ext/numeric/time'
 require 'action_dispatch'
 
