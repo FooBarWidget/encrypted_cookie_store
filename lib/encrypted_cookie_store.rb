@@ -45,6 +45,14 @@ module ActionDispatch
         super
       end
 
+      # overrides method in Rack::Session::Cookie
+      def load_session(env)
+        if time = timestamp(env)
+          env['encrypted_cookie_store.session_refreshed_at'] ||= Time.at(time).utc
+        end
+        super
+      end
+
       private
 
       def expire_after(options={})
@@ -77,14 +85,6 @@ module ActionDispatch
         session_data = super
         session_data.delete(:timestamp)
         marshal(session_data, options)
-      end
-
-      # overrides method in Rack::Session::Cookie
-      def load_session(env)
-        if time = timestamp(env)
-          env['encrypted_cookie_store.session_refreshed_at'] ||= Time.at(time).utc
-        end
-        super
       end
 
       # overrides method in Rack::Session::Abstract::ID
