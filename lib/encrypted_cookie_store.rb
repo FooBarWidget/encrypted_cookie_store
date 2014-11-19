@@ -34,6 +34,8 @@ module ActionDispatch
         @encryption_key = unhex(@secret).freeze
         ensure_encryption_key_secure
 
+        @allow_legacy_hmac = options[:@allow_legacy_hmac]
+
         @data_cipher = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
         options[:refresh_interval] ||= 5.minutes
 
@@ -124,7 +126,7 @@ module ActionDispatch
         end
         encrypted_session_data = @data_cipher.update(compressed_session_data) << @data_cipher.final
         timestamp        = Time.now.utc.to_i if expire_after(options)
-        digest           = OpenSSL::HMAC.digest(OpenSSL::Digest.new(@digest), @secret, session_data + timestamp.to_s)
+        digest           = hmac_digest(iv, session_data, timestamp)
 
         result = "#{base64(iv)}#{compressed_session_data == session_data ? '.' : ' '}#{base64(encrypted_session_data)}.#{base64(digest)}"
         result << ".#{base64([timestamp].pack('N'))}" if expire_after(options)
@@ -146,7 +148,9 @@ module ActionDispatch
           @data_cipher.iv = iv
           session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
           session_data = inflate(session_data) if compressed
-          return nil unless digest == OpenSSL::HMAC.digest(OpenSSL::Digest.new(@digest), @secret, session_data + timestamp.to_s)
+          unless digest == hmac_digest(iv, session_data, timestamp)
+            return nil unless @allow_legacy_hmac && digest == hmac_digest(nil, session_data, timestamp)
+          end
           if expire_after(options)
             return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
           end
@@ -214,6 +218,12 @@ module ActionDispatch
 
       def unhex(hex_data)
         [hex_data].pack("H*")
+      end
+
+      def hmac_digest(iv, session_data, timestamp)
+        hmac_body = session_data + timestamp.to_s
+        hmac_body = iv + hmac_body if iv
+        OpenSSL::HMAC.digest(OpenSSL::Digest.new(@digest), @secret, hmac_body)
       end
     end
   end
