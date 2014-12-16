@@ -34,7 +34,7 @@ module ActionDispatch
         @encryption_key = unhex(@secret).freeze
         ensure_encryption_key_secure
 
-        @allow_legacy_hmac = options[:@allow_legacy_hmac]
+        @allow_legacy_hmac = options[:allow_legacy_hmac]
 
         @data_cipher = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
         options[:refresh_interval] ||= 5.minutes
