@@ -95,6 +95,11 @@ module ActionDispatch
         can_commit && (session_changed?(env, session) || refresh_session?(env, options))
       end
 
+      def destroy_session(env, session_id, options)
+        env.delete('encrypted_cookie_store.cookie')
+        ActionDispatch::Request.new(env).cookie_jar.delete(@key)
+        super
+      end
 
       def timestamp(env)
         unpacked_cookie_data(env)["timestamp"]
