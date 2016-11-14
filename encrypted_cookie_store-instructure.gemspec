@@ -15,12 +15,12 @@ Gem::Specification.new do |s|
   ]
   s.homepage = %q{http://github.com/ccutrer/encrypted_cookie_store}
   s.require_paths = ["lib"]
-  s.summary = %q{EncryptedCookieStore for Ruby on Rails 3.2}
+  s.summary = %q{EncryptedCookieStore for Ruby on Rails 4.2}
   s.description = %q{A secure version of Rails' built in CookieStore}
 
-  s.add_dependency "actionpack", ">= 3.2", "< 4.3"
-  s.add_development_dependency "bundler", "~> 1.3"
+  s.add_dependency "actionpack", "~> 4.2.7"
+
   s.add_development_dependency "rake"
-  s.add_development_dependency "rspec-rails", "~> 2.0"
-  s.add_development_dependency "debugger"
+  s.add_development_dependency "rspec-rails", "~> 3.5"
+  s.add_development_dependency "byebug"
 end
