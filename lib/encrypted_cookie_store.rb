@@ -19,8 +19,6 @@ module ActionDispatch
 
       EXPIRE_AFTER_KEY = "encrypted_cookie_store.session_expire_after"
 
-      OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
-
       def initialize(app, options = {})
         @logger = options.delete(:logger)
         @digest = options.delete(:digest) || 'SHA1'
@@ -168,7 +166,7 @@ module ActionDispatch
         else
           nil
         end
-      rescue Zlib::DataError, OpenSSLCipherError
+      rescue Zlib::DataError, OpenSSL::Cipher::CipherError
         nil
       end
 
