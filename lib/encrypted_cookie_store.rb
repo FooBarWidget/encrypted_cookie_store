@@ -13,8 +13,6 @@ module ActionDispatch
       end
       self.data_cipher_type = "aes-128-cbc".freeze
 
-      EXPIRE_AFTER_KEY = "encrypted_cookie_store.session_expire_after"
-
       def initialize(app, options = {})
         @logger = options.delete(:logger)
         @digest = options.delete(:digest) || 'SHA1'
@@ -34,11 +32,6 @@ module ActionDispatch
         super(app, options)
       end
 
-      def call(env)
-        @expire_after = env[EXPIRE_AFTER_KEY]
-        super
-      end
-
       # overrides method in Rack::Session::Cookie
       def load_session(env)
         if time = timestamp(env)
@@ -48,10 +41,6 @@ module ActionDispatch
       end
 
       private
-
-      def expire_after(options={})
-        @expire_after || options[:expire_after]
-      end
 
       # overrides method in ActionDispatch::Session::CookieStore
       def unpacked_cookie_data(env)
@@ -95,7 +84,7 @@ module ActionDispatch
       end
 
       def refresh_session?(env, options)
-        if expire_after(options) && options[:refresh_interval] && time = timestamp(env)
+        if options[:expire_after] && options[:refresh_interval] && time = timestamp(env)
           Time.now.utc.to_i > time + options[:refresh_interval]
         else
           false
@@ -115,11 +104,11 @@ module ActionDispatch
           compressed_session_data = session_data
         end
         encrypted_session_data = @data_cipher.update(compressed_session_data) << @data_cipher.final
-        timestamp        = Time.now.utc.to_i if expire_after(options)
+        timestamp        = Time.now.utc.to_i if options[:expire_after]
         digest           = hmac_digest(iv, session_data, timestamp)
 
         result = "#{base64(iv)}#{compressed_session_data == session_data ? '.' : ' '}#{base64(encrypted_session_data)}.#{base64(digest)}"
-        result << ".#{base64([timestamp].pack('N'))}" if expire_after(options)
+        result << ".#{base64([timestamp].pack('N'))}" if options[:expire_after]
         result
       end
 
@@ -139,8 +128,8 @@ module ActionDispatch
           session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
           session_data = inflate(session_data) if compressed
           return nil unless digest == hmac_digest(iv, session_data, timestamp)
-          if expire_after(options)
-            return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
+          if options[:expire_after]
+            return nil unless timestamp && Time.now.utc.to_i <= timestamp + options[:expire_after]
           end
 
           loaded_data = nil
