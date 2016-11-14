@@ -34,8 +34,6 @@ module ActionDispatch
         @encryption_key = unhex(@secret).freeze
         ensure_encryption_key_secure
 
-        @allow_legacy_hmac = options[:allow_legacy_hmac]
-
         @data_cipher = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
         options[:refresh_interval] ||= 5.minutes
 
@@ -153,9 +151,7 @@ module ActionDispatch
           @data_cipher.iv = iv
           session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
           session_data = inflate(session_data) if compressed
-          unless digest == hmac_digest(iv, session_data, timestamp)
-            return nil unless @allow_legacy_hmac && digest == hmac_digest(nil, session_data, timestamp)
-          end
+          return nil unless digest == hmac_digest(iv, session_data, timestamp)
           if expire_after(options)
             return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
           end
