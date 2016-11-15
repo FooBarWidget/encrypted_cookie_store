@@ -11,7 +11,11 @@ describe EncryptedCookieStore do
   OBJECT = { :user_id => 123, :admin => true, :message => "hello world!" }
 
 
-  SESSION_KEY = Rack::Session::Abstract::ENV_SESSION_KEY
+  SESSION_KEY = if Rack.release >= '2'
+                  Rack::RACK_SESSION
+                else
+                  Rack::Session::Abstract::ENV_SESSION_KEY
+                end
 
   class MockApplication
     def initialize(&block)

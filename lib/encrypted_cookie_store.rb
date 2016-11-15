@@ -32,10 +32,51 @@ module ActionDispatch
         super(app, options)
       end
 
+      if Rack.release >= '2'
+        def get_header(req, key)
+          req.get_header(key)
+        end
+
+        def fetch_header(req, key, &block)
+          req.fetch_header(key, &block)
+        end
+
+        def set_header(req, key, value)
+          req.set_header(key, value)
+        end
+
+        # overrides method in ActionDispatch::Session::CookieStore
+        def cookie_jar(request)
+          request.cookie_jar
+        end
+
+        write_session = 'write_session'
+      else
+        def get_header(env, key)
+          env[key]
+        end
+
+        def fetch_header(env, key, &block)
+          env.fetch(key, &block)
+        end
+
+        def set_header(env, key, value)
+          env[key] = value
+        end
+
+        # overrides method in ActionDispatch::Session::CookieStore
+        def cookie_jar(env)
+          request = ActionDispatch::Request.new(env)
+          request.cookie_jar
+        end
+
+        write_session = 'set_session'
+      end
+
       # overrides method in Rack::Session::Cookie
-      def load_session(env)
-        if time = timestamp(env)
-          env['encrypted_cookie_store.session_refreshed_at'] ||= Time.at(time).utc
+      def load_session(req)
+        if time = timestamp(req)
+          fetch_header(req, 'encrypted_cookie_store.session_refreshed_at') { |k| set_header(req, k, Time.at(time).utc) }
         end
         super
       end
@@ -43,48 +84,45 @@ module ActionDispatch
       private
 
       # overrides method in ActionDispatch::Session::CookieStore
-      def unpacked_cookie_data(env)
-        env["action_dispatch.request.unsigned_session_cookie"] ||= begin
-          stale_session_check! do
-            if data = unmarshal(get_cookie(env))
+      def unpacked_cookie_data(req)
+        fetch_header(req, "action_dispatch.request.unsigned_session_cookie") do |k|
+          v = stale_session_check! do
+            if data = unmarshal(get_cookie(req))
               data.stringify_keys!
             end
             data ||= {}
-            env['encrypted_cookie_store.original_cookie'] = data.deep_dup.except(:timestamp)
+            set_header(req, 'encrypted_cookie_store.original_cookie', data.deep_dup.except(:timestamp))
             data
           end
+          set_header(req, k, v)
         end
       end
 
       # overrides method in ActionDispatch::Session::CookieStore
-      def cookie_jar(env)
-        request = ActionDispatch::Request.new(env)
-        request.cookie_jar
-      end
-
-      # overrides method in ActionDispatch::Session::CookieStore
-      def set_session(env, sid, session_data, options)
-        session_data = super
-        session_data.delete(:timestamp)
-        marshal(session_data, options)
-      end
+      class_eval <<-RUBY, __FILE__, __LINE__ + 1
+        def #{write_session}(req, sid, session_data, options)
+          session_data = super
+          session_data.delete(:timestamp)
+          marshal(session_data, options)
+        end
+      RUBY
 
       # overrides method in Rack::Session::Abstract::ID
-      def commit_session?(env, session, options)
+      def commit_session?(req, session, options)
         can_commit = super
-        can_commit && (session_changed?(env, session) || refresh_session?(env, options))
+        can_commit && (session_changed?(req, session) || refresh_session?(req, options))
       end
 
-      def timestamp(env)
-        unpacked_cookie_data(env)["timestamp"]
+      def timestamp(req)
+        unpacked_cookie_data(req)["timestamp"]
       end
 
-      def session_changed?(env, session)
-        (session || {}).to_hash.stringify_keys.except(:timestamp) != (env['encrypted_cookie_store.original_cookie'] || {})
+      def session_changed?(req, session)
+        (session || {}).to_hash.stringify_keys.except(:timestamp) != (get_header(req, 'encrypted_cookie_store.original_cookie') || {})
       end
 
-      def refresh_session?(env, options)
-        if options[:expire_after] && options[:refresh_interval] && time = timestamp(env)
+      def refresh_session?(req, options)
+        if options[:expire_after] && options[:refresh_interval] && time = timestamp(req)
           Time.now.utc.to_i > time + options[:refresh_interval]
         else
           false
