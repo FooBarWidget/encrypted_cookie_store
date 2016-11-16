@@ -13,6 +13,12 @@ module ActionDispatch
       end
       self.data_cipher_type = "aes-128-cbc".freeze
 
+      SESSION_KEY = if Rack.release >= '2'
+                      Rack::RACK_SESSION
+                    else
+                      Rack::Session::Abstract::ENV_SESSION_KEY
+                    end
+
       def initialize(app, options = {})
         @logger = options.delete(:logger)
         @digest = options.delete(:digest) || 'SHA1'
@@ -87,7 +93,7 @@ module ActionDispatch
       def unpacked_cookie_data(req)
         fetch_header(req, "action_dispatch.request.unsigned_session_cookie") do |k|
           v = stale_session_check! do
-            if data = unmarshal(get_cookie(req))
+            if data = unmarshal(get_cookie(req), get_header(req, SESSION_KEY).options)
               data.stringify_keys!
             end
             data ||= {}

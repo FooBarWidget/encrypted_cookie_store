@@ -10,7 +10,6 @@ describe EncryptedCookieStore do
       "ce6a45c34607d2048d735b0a31a769de4e1512eb83c7012059a66937158a8975"
   OBJECT = { :user_id => 123, :admin => true, :message => "hello world!" }
 
-
   SESSION_KEY = if Rack.release >= '2'
                   Rack::RACK_SESSION
                 else
