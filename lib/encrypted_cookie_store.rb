@@ -1,11 +1,7 @@
 require 'openssl'
 require 'zlib'
 
-if ActiveSupport::VERSION::STRING >= '4.0'
-  require 'active_support/core_ext/object/deep_dup'
-else
-  require 'active_support/core_ext/hash/deep_dup'
-end
+require 'active_support/core_ext/object/deep_dup'
 require 'active_support/core_ext/numeric/time'
 require 'action_dispatch'
 
@@ -16,10 +12,6 @@ module ActionDispatch
         attr_accessor :data_cipher_type
       end
       self.data_cipher_type = "aes-128-cbc".freeze
-
-      EXPIRE_AFTER_KEY = "encrypted_cookie_store.session_expire_after"
-
-      OpenSSLCipherError = OpenSSL::Cipher.const_defined?(:CipherError) ? OpenSSL::Cipher::CipherError : OpenSSL::CipherError
 
       def initialize(app, options = {})
         @logger = options.delete(:logger)
@@ -34,83 +26,103 @@ module ActionDispatch
         @encryption_key = unhex(@secret).freeze
         ensure_encryption_key_secure
 
-        @allow_legacy_hmac = options[:allow_legacy_hmac]
-
         @data_cipher = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
         options[:refresh_interval] ||= 5.minutes
 
         super(app, options)
       end
 
-      def call(env)
-        @expire_after = env[EXPIRE_AFTER_KEY]
-        super
+      if Rack.release >= '2'
+        def get_header(req, key)
+          req.get_header(key)
+        end
+
+        def fetch_header(req, key, &block)
+          req.fetch_header(key, &block)
+        end
+
+        def set_header(req, key, value)
+          req.set_header(key, value)
+        end
+
+        # overrides method in ActionDispatch::Session::CookieStore
+        def cookie_jar(request)
+          request.cookie_jar
+        end
+
+        write_session = 'write_session'
+      else
+        def get_header(env, key)
+          env[key]
+        end
+
+        def fetch_header(env, key, &block)
+          env.fetch(key, &block)
+        end
+
+        def set_header(env, key, value)
+          env[key] = value
+        end
+
+        # overrides method in ActionDispatch::Session::CookieStore
+        def cookie_jar(env)
+          request = ActionDispatch::Request.new(env)
+          request.cookie_jar
+        end
+
+        write_session = 'set_session'
       end
 
       # overrides method in Rack::Session::Cookie
-      def load_session(env)
-        if time = timestamp(env)
-          env['encrypted_cookie_store.session_refreshed_at'] ||= Time.at(time).utc
+      def load_session(req)
+        if time = timestamp(req)
+          fetch_header(req, 'encrypted_cookie_store.session_refreshed_at') { |k| set_header(req, k, Time.at(time).utc) }
         end
         super
       end
 
       private
 
-      def expire_after(options={})
-        @expire_after || options[:expire_after]
-      end
-
       # overrides method in ActionDispatch::Session::CookieStore
-      def unpacked_cookie_data(env)
-        env['encrypted_cookie_store.cookie'] ||= begin
-          stale_session_check! do
-            request = ActionDispatch::Request.new(env)
-            if data = unmarshal(request.cookie_jar[@key])
+      def unpacked_cookie_data(req)
+        fetch_header(req, "action_dispatch.request.unsigned_session_cookie") do |k|
+          v = stale_session_check! do
+            if data = unmarshal(get_cookie(req))
               data.stringify_keys!
             end
             data ||= {}
-            env['encrypted_cookie_store.original_cookie'] = data.deep_dup.except(:timestamp)
+            set_header(req, 'encrypted_cookie_store.original_cookie', data.deep_dup.except(:timestamp))
             data
           end
+          set_header(req, k, v)
         end
       end
 
       # overrides method in ActionDispatch::Session::CookieStore
-      def set_cookie(env, session_id, cookie)
-        request = ActionDispatch::Request.new(env)
-        request.cookie_jar[@key] = cookie
-      end
-
-      # overrides method in ActionDispatch::Session::CookieStore
-      def set_session(env, sid, session_data, options)
-        session_data = super
-        session_data.delete(:timestamp)
-        marshal(session_data, options)
-      end
+      class_eval <<-RUBY, __FILE__, __LINE__ + 1
+        def #{write_session}(req, sid, session_data, options)
+          session_data = super
+          session_data.delete(:timestamp)
+          marshal(session_data, options)
+        end
+      RUBY
 
       # overrides method in Rack::Session::Abstract::ID
-      def commit_session?(env, session, options)
+      def commit_session?(req, session, options)
         can_commit = super
-        can_commit && (session_changed?(env, session) || refresh_session?(env, options))
+        can_commit && (session_changed?(req, session) || refresh_session?(req, options))
       end
 
-      def destroy_session(env, session_id, options)
-        env.delete('encrypted_cookie_store.cookie')
-        ActionDispatch::Request.new(env).cookie_jar.delete(@key)
-        super
+      def timestamp(req)
+        unpacked_cookie_data(req)["timestamp"]
       end
 
-      def timestamp(env)
-        unpacked_cookie_data(env)["timestamp"]
+      def session_changed?(req, session)
+        (session || {}).to_hash.stringify_keys.except(:timestamp) != (get_header(req, 'encrypted_cookie_store.original_cookie') || {})
       end
 
-      def session_changed?(env, session)
-        (session || {}).to_hash.stringify_keys.except(:timestamp) != (env['encrypted_cookie_store.original_cookie'] || {})
-      end
-
-      def refresh_session?(env, options)
-        if expire_after(options) && options[:refresh_interval] && time = timestamp(env)
+      def refresh_session?(req, options)
+        if options[:expire_after] && options[:refresh_interval] && time = timestamp(req)
           Time.now.utc.to_i > time + options[:refresh_interval]
         else
           false
@@ -130,11 +142,11 @@ module ActionDispatch
           compressed_session_data = session_data
         end
         encrypted_session_data = @data_cipher.update(compressed_session_data) << @data_cipher.final
-        timestamp        = Time.now.utc.to_i if expire_after(options)
+        timestamp        = Time.now.utc.to_i if options[:expire_after]
         digest           = hmac_digest(iv, session_data, timestamp)
 
         result = "#{base64(iv)}#{compressed_session_data == session_data ? '.' : ' '}#{base64(encrypted_session_data)}.#{base64(digest)}"
-        result << ".#{base64([timestamp].pack('N'))}" if expire_after(options)
+        result << ".#{base64([timestamp].pack('N'))}" if options[:expire_after]
         result
       end
 
@@ -153,11 +165,9 @@ module ActionDispatch
           @data_cipher.iv = iv
           session_data = @data_cipher.update(encrypted_session_data) << @data_cipher.final
           session_data = inflate(session_data) if compressed
-          unless digest == hmac_digest(iv, session_data, timestamp)
-            return nil unless @allow_legacy_hmac && digest == hmac_digest(nil, session_data, timestamp)
-          end
-          if expire_after(options)
-            return nil unless timestamp && Time.now.utc.to_i <= timestamp + expire_after(options)
+          return nil unless digest == hmac_digest(iv, session_data, timestamp)
+          if options[:expire_after]
+            return nil unless timestamp && Time.now.utc.to_i <= timestamp + options[:expire_after]
           end
 
           loaded_data = nil
@@ -172,7 +182,7 @@ module ActionDispatch
         else
           nil
         end
-      rescue Zlib::DataError, OpenSSLCipherError
+      rescue Zlib::DataError, OpenSSL::Cipher::CipherError
         nil
       end
 
