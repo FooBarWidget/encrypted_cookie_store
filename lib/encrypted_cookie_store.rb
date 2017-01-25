@@ -32,7 +32,7 @@ module ActionDispatch
         @encryption_key = unhex(@secret).freeze
         ensure_encryption_key_secure
 
-        @data_cipher = OpenSSL::Cipher::Cipher.new(EncryptedCookieStore.data_cipher_type)
+        @data_cipher = OpenSSL::Cipher.new(EncryptedCookieStore.data_cipher_type)
         options[:refresh_interval] ||= 5.minutes
 
         super(app, options)
