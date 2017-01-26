@@ -34,6 +34,10 @@ describe EncryptedCookieStore do
     ActionDispatch::Cookies.new(store).send(:call, env)
   end
 
+  it "errors on too short of encryption key" do
+    expect { create_store(secret: "0123456789") }.to raise_error(ArgumentError)
+  end
+
   specify "marshalling and unmarshalling data works" do
     data   = create_store.send(:marshal, OBJECT)
     object = create_store.send(:unmarshal, data)
