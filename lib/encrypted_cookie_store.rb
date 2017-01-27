@@ -29,10 +29,10 @@ module ActionDispatch
         @secret = options.delete(:secret)
         @secret = @secret.call if @secret.respond_to?(:call)
         @secret.freeze
-        @encryption_key = unhex(@secret).freeze
-        ensure_encryption_key_secure
 
         @data_cipher = OpenSSL::Cipher.new(EncryptedCookieStore.data_cipher_type)
+        @encryption_key = unhex(@secret[0...(@data_cipher.key_len * 2)]).freeze
+        ensure_encryption_key_secure
         options[:refresh_interval] ||= 5.minutes
 
         super(app, options)
@@ -195,20 +195,20 @@ module ActionDispatch
       # To prevent users from using an insecure encryption key like "Password" we make sure that the
       # encryption key they've provided is at least 30 characters in length.
       def ensure_encryption_key_secure
-        if @encryption_key.blank?
+        if @secret.blank?
           raise ArgumentError, "An encryption key is required for encrypting the " +
               "cookie session data. Please set config.action_controller.session = { " +
-              "..., :encryption_key => \"some random string of at least " +
-              "16 bytes\", ... } in config/environment.rb"
+              "..., :secret => \"some random hex string of at least " +
+              "#{@data_cipher.key_len} bytes\", ... } in config/environment.rb"
         end
 
-        if @encryption_key.size < 16 * 2
+        if @secret.size < @data_cipher.key_len * 2
           raise ArgumentError, "The EncryptedCookieStore encryption key must be a " +
-              "hexadecimal string of at least 16 bytes. " +
-              "The value that you've provided, \"#{@encryption_key}\", is " +
-              "#{@encryption_key.size / 2} bytes. You could use the following (randomly " +
-              "generated) string as encryption key: " +
-              ActiveSupport::SecureRandom.hex(16)
+              "hexadecimal string of at least #{@data_cipher.key_len} bytes. " +
+              "The value that you've provided, \"#{@secret}\", is " +
+              "#{@secret.size / 2} bytes. You could use the following (randomly " +
+              "generated) string as the secret: " +
+              SecureRandom.hex(@data_cipher.key_len)
         end
       end
 
