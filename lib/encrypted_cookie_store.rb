@@ -129,7 +129,7 @@ module ActionDispatch
 
       def refresh_session?(req, options)
         if options[:expire_after] && options[:refresh_interval] && time = timestamp(req)
-          Time.now.utc.to_i > time + options[:refresh_interval]
+          Time.now.utc.to_i > time + options[:refresh_interval].to_i
         else
           false
         end
@@ -173,7 +173,7 @@ module ActionDispatch
           session_data = inflate(session_data) if compressed
           return nil unless digest == hmac_digest(iv, session_data, timestamp)
           if options[:expire_after]
-            return nil unless timestamp && Time.now.utc.to_i <= timestamp + options[:expire_after]
+            return nil unless timestamp && Time.now.utc.to_i <= timestamp + options[:expire_after].to_i
           end
 
           loaded_data = nil
