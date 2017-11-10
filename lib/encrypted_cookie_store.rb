@@ -97,7 +97,7 @@ module ActionDispatch
               data.stringify_keys!
             end
             data ||= {}
-            set_header(req, 'encrypted_cookie_store.original_cookie', data.deep_dup.except(:timestamp))
+            set_header(req, 'encrypted_cookie_store.original_cookie', data.deep_dup.except('timestamp'))
             data
           end
           set_header(req, k, v)
@@ -108,7 +108,7 @@ module ActionDispatch
       class_eval <<-RUBY, __FILE__, __LINE__ + 1
         def #{write_session}(req, sid, session_data, options)
           session_data = super
-          session_data.delete(:timestamp)
+          session_data.delete('timestamp')
           marshal(session_data, options)
         end
       RUBY
@@ -124,7 +124,7 @@ module ActionDispatch
       end
 
       def session_changed?(req, session)
-        (session || {}).to_hash.stringify_keys.except(:timestamp) != (get_header(req, 'encrypted_cookie_store.original_cookie') || {})
+        (session || {}).to_hash.stringify_keys.except('timestamp') != (get_header(req, 'encrypted_cookie_store.original_cookie') || {})
       end
 
       def refresh_session?(req, options)
@@ -183,7 +183,7 @@ module ActionDispatch
             @logger.error("Could not unmarshal session_data: #{session_data.inspect}") if @logger
           end
 
-          loaded_data[:timestamp] = timestamp if loaded_data && timestamp
+          loaded_data['timestamp'] = timestamp if loaded_data && timestamp
           loaded_data
         else
           nil

@@ -82,7 +82,7 @@ describe EncryptedCookieStore do
     store = create_store
     data = store.send(:marshal, OBJECT, :expire_after => 1.day)
     result = store.send(:unmarshal, data, :expire_after => 1.day)
-    timestamp = result.delete(:timestamp)
+    timestamp = result.delete('timestamp')
     expect(timestamp).not_to be_nil
     expect(result).to eq(OBJECT)
   end
@@ -134,14 +134,16 @@ describe EncryptedCookieStore do
   it "should not refresh the cookie if the session didn't change" do
     parent = MockApplication.new do |env|
       env[SESSION_KEY][:hello] = 'world'
+      env[SESSION_KEY]['timestamp'] -= 1 if env[SESSION_KEY]['timestamp']
       [200, {}, []]
     end
-    store = create_store(:app => parent)
+    store = create_store(:app => parent, :expire_after => 1.day)
 
     result = write_headers(store)
     expect(result[1]['Set-Cookie']).not_to be_nil
 
     env = { 'HTTP_COOKIE' => result[1]['Set-Cookie'] }
+
     result = write_headers(store, env)
     expect(result[1]).to eq({})
   end
