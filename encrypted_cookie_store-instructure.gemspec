@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = %q{encrypted_cookie_store-instructure}
-  s.version = "1.2.7"
+  s.version = "1.2.8"
 
   s.authors = ["Cody Cutrer", "Jacob Fugal", "James Williams"]
   s.date = %q{2013-12-20}
