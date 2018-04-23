@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
   s.summary = %q{EncryptedCookieStore for Ruby on Rails 4.2}
   s.description = %q{A secure version of Rails' built in CookieStore}
 
-  s.add_dependency "actionpack", ">= 4.2", "< 5.2"
+  s.add_dependency "actionpack", ">= 4.2", "< 5.3"
 
   s.add_development_dependency "rake"
   s.add_development_dependency "rspec-rails", "~> 3.5"
