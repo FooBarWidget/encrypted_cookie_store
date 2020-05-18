@@ -108,8 +108,16 @@ module ActionDispatch
       class_eval <<-RUBY, __FILE__, __LINE__ + 1
         def #{write_session}(req, sid, session_data, options)
           session_data = super
-          session_data.delete('timestamp')
-          marshal(session_data, options)
+          if session_data.is_a?(::ActionDispatch::Session::CookieStore::SessionId)
+            session_id = session_data
+            session_data = session_data.cookie_value
+            session_data.delete('timestamp')
+            session_id.instance_variable_set(:@cookie_value, marshal(session_data, options)) # swap out the cookie value
+            session_id
+          else
+            session_data.delete('timestamp')
+            marshal(session_data, options)
+          end
         end
       RUBY
 
